@@ -1,4 +1,6 @@
-        import java.util.Scanner;
+package Example.Crack;
+
+import java.util.Scanner;
 
         public class CryptoAnalysis {
 
