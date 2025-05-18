@@ -24,7 +24,7 @@ import java.util.Scanner;
                 return input.toLowerCase().replaceAll("[^a-z]", "");
             }
 
-            private static void showCoincidences(String cipherText) {
+            public static void showCoincidences(String cipherText) {
                 int cipherLength = cipherText.length();
                 for (int offset = 1; offset <= cipherLength / 2; offset++) {
                     int counter = 0;
