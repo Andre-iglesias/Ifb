@@ -1,135 +1,162 @@
 package Example.Crack;
 
-import java.util.Scanner;
+import java.util.*;
 
-        public class CryptoAnalysis {
+public class CryptoAnalysis {
+    private static final String PORTUGUESE_ALPHABET = "ABCDEFGHIJKLMNOPQRSTUVWXYZ";
+    // Portuguese letter frequencies (A-Z, in order, as percentages)
+    private static final double[] PORTUGUESE_FREQ = {
+            14.63, 1.04, 3.88, 4.99, 12.57, 1.02, 1.30, 1.28, 6.18, 0.40,
+            0.02, 2.78, 4.74, 5.05, 10.73, 2.52, 1.20, 6.53, 7.81, 4.34,
+            4.63, 1.67, 0.01, 0.21, 0.01, 0.47
+    };
 
-            private static final double[] EN_FREQUENCIES = {
-                    0.08167, 0.01492, 0.02782, 0.04253, 0.12702, 0.02228, 0.02015,
-                    0.06094, 0.06966, 0.00153, 0.00772, 0.04025, 0.02406, 0.06749,
-                    0.07507, 0.01929, 0.00095, 0.05987, 0.06327, 0.09056, 0.02758,
-                    0.00978, 0.02360, 0.00150, 0.01974, 0.00074
-            };
+    // Cleans input, keeps only uppercase letters
+    public static String clean(String input) {
+        return input.replaceAll("[^A-Za-z]", "").toUpperCase();
+    }
 
-            private static final double[] PT_FREQUENCIES = {
-                    0.1463, 0.0104, 0.0388, 0.0499, 0.1257, 0.0102, 0.0130, 0.0128,
-                    0.0618, 0.0040, 0.0002, 0.0278, 0.0474, 0.0505, 0.1073, 0.0252,
-                    0.012, 0.0653, 0.0781, 0.0434, 0.0463, 0.0167, 0.0001, 0.0021,
-                    0.0001, 0.0047
-            };
-
-            private static final String LETTERS = "abcdefghijklmnopqrstuvwxyz";
-
-            private static String filterString(String input) {
-                return input.toLowerCase().replaceAll("[^a-z]", "");
-            }
-
-            public static void showCoincidences(String cipherText) {
-                int cipherLength = cipherText.length();
-                for (int offset = 1; offset <= cipherLength / 2; offset++) {
-                    int counter = 0;
-                    for (int i = 0; i < cipherLength - offset; i++) {
-                        if (cipherText.charAt(i) == cipherText.charAt(i + offset)) {
-                            counter++;
-                        }
-                    }
-                    System.out.println(offset + ": " + counter);
+    // Kasiski Examination to guess key length
+    public static int kasiskiExamination(String ciphertext) {
+        Map<String, List<Integer>> trigramPositions = new HashMap<>();
+        for (int i = 0; i < ciphertext.length() - 2; i++) {
+            String trigram = ciphertext.substring(i, i+3);
+            trigramPositions.computeIfAbsent(trigram, k -> new ArrayList<>()).add(i);
+        }
+        List<Integer> distances = new ArrayList<>();
+        for (List<Integer> positions : trigramPositions.values()) {
+            if (positions.size() > 1) {
+                for (int i = 1; i < positions.size(); i++) {
+                    distances.add(positions.get(i) - positions.get(i-1));
                 }
-            }
-
-            private static double getC(String sequence) {
-                double N = sequence.length();
-                double frequencySum = 0.0;
-
-                for (char letter : LETTERS.toCharArray()) {
-                    long count = sequence.chars().filter(ch -> ch == letter).count();
-                    frequencySum += count * (count - 1);
-                }
-
-                return (N * (N - 1)) > 0 ? (frequencySum / (N * (N - 1))) * 26 : 0;
-            }
-
-            private static void probableKeyLength(String cipherText, boolean isEnglish) {
-
-
-                for (int guess = 1; guess <= 20; guess++) {
-                    double coincidenceSum = 0.0;
-
-                    for (int i = 0; i < guess; i++) {
-                        StringBuilder sequence = new StringBuilder();
-                        for (int j = i; j < cipherText.length(); j += guess) {
-                            sequence.append(cipherText.charAt(j));
-                        }
-                        coincidenceSum += getC(sequence.toString());
-                    }
-
-                    System.out.println(guess + ": " + coincidenceSum);
-                }
-            }
-
-            private static char frequencies(String seq, boolean isEnglish) {
-                double[] letterFrequencies = isEnglish ? EN_FREQUENCIES : PT_FREQUENCIES;
-                double[] chiSquaredArray = new double[26];
-
-                for (int i = 0; i < 26; i++) {
-                    double sumSq = 0.0;
-                    int[] counts = new int[26];
-
-                    for (char ch : seq.toCharArray()) {
-                        int shifted = ((ch - 'a' - i + 26) % 26);
-                        counts[shifted]++;
-                    }
-
-                    for (int j = 0; j < 26; j++) {
-                        double observed = counts[j] / (double) seq.length();
-                        double expected = letterFrequencies[j];
-                        sumSq += Math.pow(observed - expected, 2) / expected;
-                    }
-
-                    chiSquaredArray[i] = sumSq;
-                }
-
-                int shift = 0;
-                double minChi = chiSquaredArray[0];
-                for (int i = 1; i < 26; i++) {
-                    if (chiSquaredArray[i] < minChi) {
-                        minChi = chiSquaredArray[i];
-                        shift = i;
-                    }
-                }
-
-                return (char) (shift + 'a');
-            }
-
-            private static String getKey(String cipherText, int keyLength, boolean isEnglish) {
-                StringBuilder key = new StringBuilder();
-
-                for (int i = 0; i < keyLength; i++) {
-                    StringBuilder sequence = new StringBuilder();
-                    for (int j = i; j < cipherText.length(); j += keyLength) {
-                        sequence.append(cipherText.charAt(j));
-                    }
-                    key.append(frequencies(sequence.toString(), isEnglish));
-                }
-
-                return key.toString();
-            }
-
-            public static void main(String[] args) {
-                Scanner scanner = new Scanner(System.in);
-
-                System.out.print("Digite 'en' para inglês e 'pt' para português: ");
-                String language = scanner.nextLine();
-                boolean isEnglish = language.equalsIgnoreCase("en");
-
-                System.out.print("Digite o texto cifrado: ");
-                String cipherText = filterString(scanner.nextLine());
-
-                probableKeyLength(cipherText, isEnglish);
-
-                System.out.print("Digite o tamanho da chave: ");
-                int keyLength = scanner.nextInt();
-
-                System.out.println("Possível chave: " + getKey(cipherText, keyLength, isEnglish));
             }
         }
+        Map<Integer, Integer> gcdCounts = new HashMap<>();
+        for (int i = 0; i < distances.size(); i++) {
+            for (int j = i+1; j < distances.size(); j++) {
+                int gcd = gcd(distances.get(i), distances.get(j));
+                if (gcd > 1 && gcd < 21) { // likely key lengths
+                    gcdCounts.put(gcd, gcdCounts.getOrDefault(gcd, 0) + 1);
+                }
+            }
+        }
+        return gcdCounts.entrySet().stream()
+                .max(Map.Entry.comparingByValue())
+                .map(Map.Entry::getKey)
+                .orElse(1); // Default to 1 if nothing found
+    }
+
+    // Greatest Common Divisor
+    private static int gcd(int a, int b) {
+        while (b != 0) {
+            int t = b;
+            b = a % b;
+            a = t;
+        }
+        return a;
+    }
+
+    // Index of Coincidence for a given key length
+    public static double indexOfCoincidence(String text, int keyLen) {
+        double sum = 0.0;
+        for (int i = 0; i < keyLen; i++) {
+            StringBuilder sb = new StringBuilder();
+            for (int j = i; j < text.length(); j += keyLen) {
+                sb.append(text.charAt(j));
+            }
+            sum += singleIC(sb.toString());
+        }
+        return sum / keyLen;
+    }
+
+    private static double singleIC(String s) {
+        int[] count = new int[26];
+        for (char c : s.toCharArray()) {
+            count[c - 'A']++;
+        }
+        int N = s.length();
+        double ic = 0.0;
+        for (int n : count) {
+            ic += n * (n - 1);
+        }
+        return ic / (N * (N - 1.0));
+    }
+
+    // Finds the key using frequency analysis for a given key length
+    public static String findKey(String ciphertext, int keyLen) {
+        StringBuilder key = new StringBuilder();
+        for (int i = 0; i < keyLen; i++) {
+            StringBuilder sb = new StringBuilder();
+            for (int j = i; j < ciphertext.length(); j += keyLen) {
+                sb.append(ciphertext.charAt(j));
+            }
+            key.append(mostLikelyShift(sb.toString()));
+        }
+        return key.toString();
+    }
+
+    // Returns the most likely letter (A-Z) for this segment using Portuguese frequencies
+    private static char mostLikelyShift(String segment) {
+        int bestShift = 0;
+        double bestScore = Double.NEGATIVE_INFINITY;
+        for (int shift = 0; shift < 26; shift++) {
+            int[] freq = new int[26];
+            for (char c : segment.toCharArray()) {
+                int shifted = (c - 'A' - shift + 26) % 26;
+                freq[shifted]++;
+            }
+            double score = 0.0, total = segment.length();
+            for (int i = 0; i < 26; i++) {
+                double observed = freq[i] / total;
+                score += observed * Math.log(PORTUGUESE_FREQ[i] + 1e-6); // avoid log(0)
+            }
+            if (score > bestScore) {
+                bestScore = score;
+                bestShift = shift;
+            }
+        }
+        return (char) ('A' + bestShift);
+    }
+
+    // Decrypts ciphertext with the found key
+    public static String decrypt(String ciphertext, String key) {
+        StringBuilder sb = new StringBuilder();
+        int keyLen = key.length();
+        for (int i = 0; i < ciphertext.length(); i++) {
+            char c = ciphertext.charAt(i);
+            char k = key.charAt(i % keyLen);
+            int p = (c - k + 26) % 26;
+            sb.append((char) ('A' + p));
+        }
+        return sb.toString();
+    }
+    // Returns the minimal period of the found key (e.g., CHAVE in CHAVECHAVE)
+    public static String minimalPeriod(String key) {
+        int n = key.length();
+        for (int p = 1; p <= n; p++) {
+            if (n % p == 0) {
+                String period = key.substring(0, p);
+                StringBuilder sb = new StringBuilder();
+                for (int i = 0; i < n / p; i++) sb.append(period);
+                if (sb.toString().equals(key)) return period;
+            }
+        }
+        return key;
+    }
+
+    // Full pipeline
+    public static void main(String[] args) {
+        String ciphertext = "PHQPINLFDQFLTVVFLEIUWHNOSQZOGQGYGPPJHVVRQOOMMBVNOIFVUMEPKOJWVLLCEFVSYERLQPIPHVDPCVSHSTHDJVGZCJQGÇHRVQCZEMIWUIMRCWRVÇEELNOVCSOIHGVVZPJVAIGKÃVCJRVHRDEOHINYOHDZWWHSCMUAÓRDEUSEIHÁTPANWQIRZXGTPJWCUTDKQZHZVÓKZENUWLCDHQZEWEVHLCEUXUZQQSDVVCTOYIUAIISFVMPRFVTJHQZENGWAAQEOLMNMNÊUCDSEVMJPJVSVVTLGVPCKONIEVRVÇÕIUHCZPGYAYSUJOHSULCVHCWAGEXYAOMXLSNIQWOYITKEOVCGEMÀZKKAJWGJONHQWANWCKO";
+        ciphertext = clean(ciphertext);
+
+        int keyLen = kasiskiExamination(ciphertext);
+        String key = findKey(ciphertext, keyLen);
+        String minKey = minimalPeriod(key);
+        String plaintext = decrypt(ciphertext, minKey);
+
+        System.out.println("Estimated key length: " + keyLen);
+        System.out.println("Estimated key: " + key);
+        System.out.println("Minimal period key: " + minKey);
+        System.out.println("Plaintext: " + plaintext);
+    }
+}

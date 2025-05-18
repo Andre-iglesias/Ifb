@@ -65,7 +65,7 @@ public class Main {
             // CryptoAnalysis.showCoincidences(cipherText); // If method is static & public
             // For now, inform the user to check console or implement output redirection
             crackOutput.setText("Results shown in console.\n(You may adapt CryptoAnalysis methods to return strings.)");
-            CryptoAnalysis.showCoincidences(cipherText); // This prints to console
+
         });
 
         crackPanel.add(new JLabel("Cipher Text:"), BorderLayout.NORTH);
